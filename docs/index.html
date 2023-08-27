@@ -24,13 +24,12 @@
       const xterm = new Terminal({
         cols: 120,
         rows: 40,
-        scrollback: 0,
       });
       xterm.open(document.getElementById("terminal"));
 
       const { master, slave } = openpty();
 
-      xterm.write("Booting...\n\r");
+      xterm.write("Downloading...\n\r");
 
       // Configure terminal for raw mode
       termios = slave.ioctl("TCGETS");
@@ -44,11 +43,18 @@
       termios.cflag |= 0x0030; // CS8
       slave.ioctl("TCSETS", new Termios(termios.iflag, termios.oflag, termios.cflag, termios.lflag, termios.cc));
 
+
       xterm.loadAddon(master);
       xterm.loadAddon(new (CanvasAddon.CanvasAddon)());
 
       const worker = new Worker("./cartesi-term.worker.js");
-      new TtyServer(slave).start(worker)
+      new TtyServer(slave).start(worker, msg => {
+        switch (msg.data.type) {
+          case "status":
+            xterm.write(`${msg.data.message == "Running..." ? "Booting..." : msg.data.message}\x1b[0K`);
+            break;
+        }
+      })
     </script>
   </body>
 </html>
